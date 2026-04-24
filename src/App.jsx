@@ -1,0 +1,857 @@
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./App.css";
+
+const starterSpots = [
+  {
+    name: "Airport",
+    position: [32.88, -118.48],
+    mainImage: "https://picsum.photos/200?random=1",
+    gallery: [],
+    pending: [],
+  },
+  {
+    name: "Barracks",
+    position: [32.91, -118.51],
+    mainImage: "https://picsum.photos/200?random=2",
+    gallery: [],
+    pending: [],
+  },
+  {
+    name: "Galley",
+    position: [32.89, -118.49],
+    mainImage: "https://picsum.photos/200?random=3",
+    gallery: [],
+    pending: [],
+  },
+  {
+    name: "Gym",
+    position: [32.9, -118.5],
+    mainImage: "https://picsum.photos/200?random=4",
+    gallery: [],
+    pending: [],
+  },
+];
+
+function makeIcon(image, active) {
+  const safeImage =
+    image && image !== ""
+      ? image
+      : "https://picsum.photos/200?random=99";
+
+  return L.divIcon({
+    html: `
+      <div class="${active ? "blink-marker" : ""}" style="
+        width:60px;
+        height:60px;
+        border-radius:10px;
+        overflow:hidden;
+        border:3px solid ${active ? "red" : "white"};
+        box-shadow:0 0 8px black;
+        background:#fff;
+      ">
+        <img 
+          src="${safeImage}" 
+          style="width:100%;height:100%;object-fit:cover;"
+          onerror="this.src='https://picsum.photos/200?random=100';"
+        />
+      </div>
+    `,
+    className: "",
+    iconSize: [60, 60],
+  });
+}
+
+function FlyToSpot({ selected }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (selected) {
+      map.flyTo(selected.position, 15);
+    }
+  }, [selected, map]);
+
+  return null;
+}
+
+function ClickToPlace({ enabled, onPlace }) {
+  useMapEvents({
+    click(e) {
+      if (!enabled) return;
+      onPlace(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
+function Controls() {
+  const map = useMap();
+
+  return (
+    <>
+      <div style={styles.zoom}>
+        <button style={styles.btn} onClick={() => map.zoomIn()}>
+          +
+        </button>
+
+        <button style={styles.btn} onClick={() => map.zoomOut()}>
+          −
+        </button>
+      </div>
+
+      <div style={styles.move}>
+        <button style={styles.btn} onClick={() => map.panBy([0, -100])}>
+          ↑
+        </button>
+
+        <div>
+          <button style={styles.btn} onClick={() => map.panBy([-100, 0])}>
+            ←
+          </button>
+
+          <button style={styles.btn} onClick={() => map.panBy([100, 0])}>
+            →
+          </button>
+        </div>
+
+        <button style={styles.btn} onClick={() => map.panBy([0, 100])}>
+          ↓
+        </button>
+      </div>
+    </>
+  );
+}
+
+export default function App({ adminMode = false }) {
+  const navigate = useNavigate();
+  const markerRefs = useRef({});
+
+  const [spots, setSpots] = useState(() => {
+    const saved = localStorage.getItem("spots");
+    return saved ? JSON.parse(saved) : starterSpots;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("spots", JSON.stringify(spots));
+  }, [spots]);
+
+  const [selected, setSelected] = useState(null);
+  const admin = adminMode;
+  const [name, setName] = useState("");
+  const [pending, setPending] = useState(null);
+  const [viewer, setViewer] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [uploadIndex, setUploadIndex] = useState(null);
+
+  const handleAdminAccess = () => {
+    navigate("/admin");
+  };
+
+  const focusSpot = (spot) => {
+    setSelected(null);
+
+    setTimeout(() => {
+      setSelected(spot);
+
+      setTimeout(() => {
+        const marker = markerRefs.current[spot.name];
+        if (marker) {
+          marker.openPopup();
+        }
+      }, 500);
+    }, 50);
+  };
+
+  const saveSpot = () => {
+    if (!name || !pending) return;
+
+    const newSpot = {
+      name,
+      position: [pending.lat, pending.lng],
+      mainImage: "https://picsum.photos/200?random=" + Math.random(),
+      gallery: [],
+      pending: [],
+    };
+
+    setSpots([...spots, newSpot]);
+    setSelected(newSpot);
+    setName("");
+    setPending(null);
+  };
+
+  const deleteSpot = (index) => {
+    if (!window.confirm("Delete this spot?")) return;
+
+    const updated = spots.filter((_, i) => i !== index);
+    setSpots(updated);
+    setSelected(null);
+  };
+
+  const deleteGalleryImage = (spotIndex, galleryIndex) => {
+    if (!window.confirm("Delete this photo?")) return;
+
+    const updated = spots.map((spot, i) => {
+      if (i !== spotIndex) return spot;
+
+      return {
+        ...spot,
+        gallery: spot.gallery.filter((_, idx) => idx !== galleryIndex),
+      };
+    });
+
+    setSpots(updated);
+  };
+
+  const deletePendingImage = (spotIndex, pendingIndex) => {
+    if (!window.confirm("Delete this pending photo?")) return;
+
+    const updated = spots.map((spot, i) => {
+      if (i !== spotIndex) return spot;
+
+      return {
+        ...spot,
+        pending: spot.pending.filter((_, idx) => idx !== pendingIndex),
+      };
+    });
+
+    setSpots(updated);
+  };
+
+  const uploadToPending = (index, file) => {
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    const updated = spots.map((spot, i) => {
+      if (i !== index) return spot;
+
+      if (admin) {
+        return {
+          ...spot,
+          gallery: [...spot.gallery, url],
+        };
+      }
+
+      return {
+        ...spot,
+        pending: [...spot.pending, url],
+      };
+    });
+
+    setSpots(updated);
+  };
+
+  const approveImage = (spotIndex, imgIndex) => {
+    const updated = spots.map((spot, i) => {
+      if (i !== spotIndex) return spot;
+
+      const img = spot.pending[imgIndex];
+
+      return {
+        ...spot,
+        gallery: [...spot.gallery, img],
+        pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
+      };
+    });
+
+    setSpots(updated);
+  };
+
+  const rejectImage = (spotIndex, imgIndex) => {
+    const updated = spots.map((spot, i) =>
+      i === spotIndex
+        ? {
+            ...spot,
+            pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
+          }
+        : spot
+    );
+
+    setSpots(updated);
+  };
+
+  const changeMain = (index, file) => {
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    const updated = spots.map((spot, i) =>
+      i === index ? { ...spot, mainImage: url } : spot
+    );
+
+    setSpots(updated);
+  };
+
+  const sortedSpots = [...spots].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  const pendingCount = spots.reduce(
+    (total, spot) => total + spot.pending.length,
+    0
+  );
+
+  return (
+    <div className="d-flex" style={{ height: "100vh", width: "100vw" }}>
+      <div style={styles.sidebar}>
+        {!admin && (
+  <button
+  className="btn btn-success w-100 mb-2"
+  onClick={() => {
+    const pass = window.prompt("Enter admin password:");
+
+    if (pass === "1234") {
+      navigate("/admin");
+    } else if (pass !== null) {
+      alert("Wrong password");
+    }
+  }}
+>
+  ADMIN ACCESS
+</button>
+        )}
+
+        {admin && (
+          <button
+            className="btn btn-secondary w-100 mb-2"
+            onClick={() => navigate("/")}
+          >
+            Back to User Page
+          </button>
+        )}
+
+        <h5>Locations</h5>
+
+        {sortedSpots.map((spot) => (
+          <div
+            key={spot.name}
+            style={{
+              ...styles.item,
+              background:
+                selected?.name === spot.name ? "#0d6efd" : "#6c757d",
+            }}
+            onClick={() => focusSpot(spot)}
+          >
+            {spot.name}
+          </div>
+        ))}
+
+        <hr />
+
+        {admin && (
+          <>
+            <input
+              className="form-control mb-2"
+              placeholder="Spot name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+
+            {pending && (
+              <div className="alert alert-info p-2">
+                Lat: {pending.lat.toFixed(5)} <br />
+                Lng: {pending.lng.toFixed(5)}
+              </div>
+            )}
+
+            <button className="btn btn-success w-100" onClick={saveSpot}>
+              Save Spot
+            </button>
+
+            {pendingCount > 0 && (
+              <div className="alert alert-warning mt-2 p-2 text-center">
+                Pending Images: {pendingCount}
+              </div>
+            )}
+
+            {spots
+              .filter((spot) => spot.pending.length > 0)
+              .map((spot) => (
+                <button
+                  key={spot.name}
+                  className="btn btn-warning btn-sm w-100 mt-2"
+                  onClick={() => focusSpot(spot)}
+                >
+                  Go to pending: {spot.name}
+                </button>
+              ))}
+          </>
+        )}
+      </div>
+
+      <div style={{ flex: 1, width: "100%" }}>
+        <MapContainer
+          center={[32.9, -118.5]}
+          zoom={11}
+          zoomControl={false}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+          <FlyToSpot selected={selected} />
+
+          <ClickToPlace
+            enabled={admin}
+            onPlace={(lat, lng) => setPending({ lat, lng })}
+          />
+
+          <Controls />
+
+          {spots.map((spot, i) => {
+            const active = selected?.name === spot.name;
+            const allImages = [
+              {
+                src: spot.mainImage,
+                pending: false,
+                type: "main",
+                realIndex: -1,
+              },
+              ...spot.gallery.map((img, galleryIndex) => ({
+                src: img,
+                pending: false,
+                type: "gallery",
+                realIndex: galleryIndex,
+              })),
+              ...spot.pending.map((img, pendingIndex) => ({
+                src: img,
+                pending: true,
+                type: "pending",
+                realIndex: pendingIndex,
+              })),
+            ];
+
+            return (
+              <Marker
+                key={i}
+                ref={(ref) => {
+                  if (ref) {
+                    markerRefs.current[spot.name] = ref;
+                  }
+                }}
+                position={spot.position}
+                icon={makeIcon(spot.mainImage, active)}
+                eventHandlers={{
+                  click: () => focusSpot(spot),
+                }}
+              >
+                <Popup>
+                  <div style={{ width: "260px" }}>
+                    <h5 className="text-center">{spot.name}</h5>
+
+                    <div style={styles.galleryScroll}>
+                      {allImages.map((img, index) => (
+                        <div key={index} style={{ position: "relative" }}>
+                          {!img.pending && (
+                            <>
+                              <img
+                                src={img.src}
+                                alt={`${spot.name} ${index}`}
+                                style={styles.galleryImage}
+                                onClick={() => {
+                                  focusSpot(spot);
+                                  setViewer(img.src);
+                                }}
+                              />
+
+                              {admin && img.type === "gallery" && (
+                                <button
+                                  style={styles.deleteImageBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteGalleryImage(i, img.realIndex);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {img.pending && (
+                            <>
+                              <div
+                                style={styles.pendingBox}
+                                onClick={() => focusSpot(spot)}
+                              >
+                                Pending Image
+                              </div>
+
+                              {admin && (
+                                <button
+                                  style={styles.deleteImageBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deletePendingImage(i, img.realIndex);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {!admin && spot.pending.length > 0 && (
+                      <div
+                        className="text-warning text-center mt-1"
+                        style={{ fontSize: "12px" }}
+                      >
+                        Photo pending approval
+                      </div>
+                    )}
+
+                    <input
+                      id={`g-${i}`}
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => uploadToPending(i, e.target.files[0])}
+                    />
+
+                    <button
+                      className="btn btn-primary btn-sm w-100 mt-2"
+                      onClick={() => {
+                        if (admin) {
+                          document.getElementById(`g-${i}`).click();
+                        } else {
+                          setUploadIndex(i);
+                          setShowWarning(true);
+                        }
+                      }}
+                    >
+                      Add More Photos
+                    </button>
+
+                    {admin && spot.pending.length > 0 && (
+                      <div className="mt-3">
+                        <h6>Pending Approval</h6>
+
+                        {spot.pending.map((img, pIndex) => (
+                          <div key={pIndex} className="mb-2">
+                            <img
+                              src={img}
+                              alt="Pending"
+                              style={{
+                                width: "100%",
+                                borderRadius: "8px",
+                                marginBottom: "5px",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => focusSpot(spot)}
+                            />
+
+                            <button
+                              className="btn btn-success btn-sm w-100 mt-1"
+                              onClick={() => approveImage(i, pIndex)}
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              className="btn btn-danger btn-sm w-100 mt-1"
+                              onClick={() => rejectImage(i, pIndex)}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {admin && (
+                      <>
+                        <input
+                          id={`m-${i}`}
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={(e) => changeMain(i, e.target.files[0])}
+                        />
+
+                        <button
+                          className="btn btn-warning btn-sm w-100 mt-2"
+                          onClick={() =>
+                            document.getElementById(`m-${i}`).click()
+                          }
+                        >
+                          Change Main Photo
+                        </button>
+
+                        <button
+                          className="btn btn-danger btn-sm w-100 mt-2"
+                          onClick={() => deleteSpot(i)}
+                        >
+                          Delete Spot
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {admin && pending && (
+            <Marker position={[pending.lat, pending.lng]} />
+          )}
+        </MapContainer>
+      </div>
+
+      {viewer && (
+        <div
+          style={styles.viewer}
+          onWheel={(e) => {
+            e.preventDefault();
+            const newZoom = zoom + e.deltaY * -0.001;
+            setZoom(Math.min(Math.max(1, newZoom), 5));
+          }}
+          onMouseDown={() => setDragging(true)}
+          onMouseUp={() => setDragging(false)}
+          onMouseLeave={() => setDragging(false)}
+          onMouseMove={(e) => {
+            if (!dragging) return;
+            setDrag({
+              x: drag.x + e.movementX,
+              y: drag.y + e.movementY,
+            });
+          }}
+          onDoubleClick={() => {
+            setZoom(zoom === 1 ? 2 : 1);
+            setDrag({ x: 0, y: 0 });
+          }}
+        >
+          <img
+            src={viewer}
+            alt="Full view"
+            style={{
+              transform: `scale(${zoom}) translate(${drag.x}px, ${drag.y}px)`,
+              maxWidth: "90%",
+              maxHeight: "90%",
+              cursor: dragging ? "grabbing" : "grab",
+            }}
+          />
+
+          <button
+            onClick={() => {
+              setViewer(null);
+              setZoom(1);
+              setDrag({ x: 0, y: 0 });
+            }}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              fontSize: "20px",
+              padding: "6px 12px",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {showWarning && (
+        <div style={styles.warningOverlay}>
+          <div style={styles.warningBox}>
+            <h5>Upload Guidelines</h5>
+
+            <p style={{ fontSize: "14px" }}>
+              Please make sure your image is appropriate.
+              <br />
+              <strong>All uploads are subject to approval.</strong>
+            </p>
+
+            <button
+              className="btn btn-success w-100 mb-2"
+              onClick={() => {
+                setShowWarning(false);
+
+                const input = document.getElementById(`g-${uploadIndex}`);
+                if (input) input.click();
+              }}
+            >
+              I Understand
+            </button>
+
+            <button
+              className="btn btn-secondary w-100"
+              onClick={() => {
+                setShowWarning(false);
+                setUploadIndex(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>
+        {`
+          .leaflet-container {
+            cursor: pointer !important;
+          }
+
+          .blink-marker {
+            animation: blink 1.2s infinite;
+          }
+
+          @keyframes blink {
+            0% {
+              opacity: 1;
+              transform: scale(1);
+            }
+
+            50% {
+              opacity: 0.35;
+              transform: scale(1.15);
+            }
+
+            100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}
+      </style>
+    </div>
+  );
+}
+
+const styles = {
+  sidebar: {
+    width: "260px",
+    background: "#111",
+    color: "white",
+    padding: "10px",
+  },
+  item: {
+    padding: "10px",
+    marginBottom: "5px",
+    cursor: "pointer",
+    borderRadius: "5px",
+  },
+  zoom: {
+    position: "absolute",
+    top: "10px",
+    right: "10px",
+    zIndex: 1000,
+    display: "flex",
+    flexDirection: "column",
+    gap: "5px",
+  },
+  move: {
+    position: "absolute",
+    bottom: "20px",
+    left: "10px",
+    zIndex: 1000,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "5px",
+  },
+  btn: {
+    width: "38px",
+    height: "38px",
+    fontSize: "20px",
+    borderRadius: "6px",
+  },
+  galleryScroll: {
+    display: "flex",
+    overflowX: "auto",
+    gap: "8px",
+    paddingBottom: "8px",
+  },
+  galleryImage: {
+    width: "90px",
+    height: "90px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
+  pendingBox: {
+    width: "90px",
+    height: "90px",
+    background: "white",
+    color: "black",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    fontSize: "12px",
+    fontWeight: "bold",
+    flexShrink: 0,
+    cursor: "pointer",
+  },
+  deleteImageBtn: {
+    position: "absolute",
+    top: "2px",
+    right: "2px",
+    background: "red",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    fontSize: "10px",
+    width: "20px",
+    height: "20px",
+    lineHeight: "18px",
+    cursor: "pointer",
+    zIndex: 10,
+  },
+  viewer: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    background: "rgba(0,0,0,0.9)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  viewerImage: {
+    maxWidth: "90%",
+    maxHeight: "90%",
+    borderRadius: "10px",
+  },
+  warningOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,0.7)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10000,
+  },
+  warningBox: {
+    background: "white",
+    padding: "20px",
+    borderRadius: "10px",
+    width: "320px",
+    textAlign: "center",
+  },
+};
