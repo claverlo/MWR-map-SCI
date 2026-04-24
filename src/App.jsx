@@ -775,7 +775,7 @@ export default function App({ adminMode = false }) {
             <h5>Upload Guidelines</h5>
 
             <p style={{ fontSize: "14px" }}>
-              Please make sure your image is appropriate.
+              Please make sure your image is appropriate and no senstive informations.
               <br />
               <strong>All uploads are subject to approval.</strong>
             </p>
