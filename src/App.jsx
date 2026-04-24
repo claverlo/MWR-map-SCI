@@ -510,14 +510,12 @@ export default function App({ adminMode = false }) {
                 type: "gallery",
                 realIndex: galleryIndex,
               })),
-              ...(admin
-                ? spot.pending.map((img, pendingIndex) => ({
-                    src: img,
-                    pending: true,
-                    type: "pending",
-                    realIndex: pendingIndex,
-                  }))
-                : []),
+              ...spot.pending.map((img, pendingIndex) => ({
+                src: img,
+                pending: true,
+                type: "pending",
+                realIndex: pendingIndex,
+              })),
             ];
 
             return (
@@ -566,7 +564,7 @@ export default function App({ adminMode = false }) {
                             </>
                           )}
 
-                          {admin && img.pending && (
+                          {img.pending && (
                             <>
                               <div
                                 style={styles.pendingBox}
@@ -583,15 +581,17 @@ export default function App({ adminMode = false }) {
                                 </div>
                               </div>
 
-                              <button
-                                style={styles.deleteImageBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deletePendingImage(i, img.realIndex);
-                                }}
-                              >
-                                ✕
-                              </button>
+                              {admin && (
+                                <button
+                                  style={styles.deleteImageBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deletePendingImage(i, img.realIndex);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
