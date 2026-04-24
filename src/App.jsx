@@ -926,14 +926,14 @@ export default function App({ adminMode = false }) {
 }
 
 const styles = {
-  sidebar: {
-    width: "260px",
-    background: "#111",
-    color: "white",
-    padding: "10px",
-    overflowY: "auto",
-    zIndex: 10,
-  },
+sidebar: {
+  width: "260px",
+  background: "#111",
+  color: "white",
+  padding: "10px",
+  overflowY: "auto",
+  zIndex: 5001,
+},
   item: {
     padding: "10px",
     marginBottom: "5px",
