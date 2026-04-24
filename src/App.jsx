@@ -169,12 +169,19 @@ export default function App({ adminMode = false }) {
   const [dragging, setDragging] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [uploadIndex, setUploadIndex] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const admin = adminMode;
 
   useEffect(() => {
     localStorage.setItem("spots", JSON.stringify(spots));
   }, [spots]);
+
+  const closeMobileMenu = () => {
+    if (window.innerWidth <= 768) {
+      setMenuOpen(false);
+    }
+  };
 
   const openSpotPopup = (spot) => {
     setSelected(spot);
@@ -187,6 +194,7 @@ export default function App({ adminMode = false }) {
 
   const focusSpot = (spot) => {
     setSelected(null);
+    closeMobileMenu();
 
     setTimeout(() => {
       openSpotPopup(spot);
@@ -222,6 +230,7 @@ export default function App({ adminMode = false }) {
     setSelected(newSpot);
     setName("");
     setPending(null);
+    closeMobileMenu();
   };
 
   const deleteSpot = (index) => {
@@ -336,9 +345,36 @@ export default function App({ adminMode = false }) {
 
   return (
     <div className="app-container">
-      <div className="sidebar" style={styles.sidebar}>
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setMenuOpen(true)}
+      >
+        ☰ Locations
+      </button>
+
+      {menuOpen && (
+        <div
+          className="mobile-backdrop"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      <div
+        className={`sidebar app-sidebar ${menuOpen ? "open" : ""}`}
+        style={styles.sidebar}
+      >
+        <button
+          className="btn btn-danger w-100 mb-2 mobile-close-btn"
+          onClick={() => setMenuOpen(false)}
+        >
+          Close Menu
+        </button>
+
         {!admin && (
-          <button className="btn btn-success w-100 mb-2" onClick={handleAdminAccess}>
+          <button
+            className="btn btn-success w-100 mb-2"
+            onClick={handleAdminAccess}
+          >
             ADMIN ACCESS
           </button>
         )}
@@ -421,7 +457,7 @@ export default function App({ adminMode = false }) {
         )}
       </div>
 
-      <div className="map-area" style={{ flex: 1, width: "100%" }}>
+      <div className="map-area">
         <MapContainer
           center={[32.9, -118.5]}
           zoom={11}
@@ -765,6 +801,31 @@ export default function App({ adminMode = false }) {
 
       <style>
         {`
+          .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+          }
+
+          .map-area {
+            flex: 1;
+            height: 100vh;
+            width: 100%;
+          }
+
+          .mobile-menu-btn {
+            display: none;
+          }
+
+          .mobile-close-btn {
+            display: none;
+          }
+
+          .mobile-backdrop {
+            display: none;
+          }
+
           .leaflet-container {
             cursor: pointer !important;
           }
@@ -789,6 +850,75 @@ export default function App({ adminMode = false }) {
               transform: scale(1);
             }
           }
+
+          @media (max-width: 768px) {
+            .app-container {
+              height: 100dvh;
+              width: 100vw;
+            }
+
+            .map-area {
+              height: 100dvh;
+              width: 100vw;
+              flex: 1;
+            }
+
+            .mobile-menu-btn {
+              display: block;
+              position: fixed;
+              top: 12px;
+              left: 12px;
+              z-index: 5000;
+              background: #111;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              padding: 10px 14px;
+              font-weight: bold;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+            }
+
+            .mobile-close-btn {
+              display: block;
+            }
+
+            .mobile-backdrop {
+              display: block;
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100dvh;
+              background: rgba(0,0,0,0.45);
+              z-index: 3999;
+            }
+
+            .app-sidebar {
+              position: fixed !important;
+              top: 0;
+              left: 0;
+              height: 100dvh !important;
+              width: 82vw !important;
+              max-width: 340px;
+              z-index: 4000;
+              transform: translateX(-105%);
+              transition: transform 0.25s ease;
+              overflow-y: auto !important;
+            }
+
+            .app-sidebar.open {
+              transform: translateX(0);
+            }
+
+            .leaflet-popup-content-wrapper {
+              max-width: 92vw;
+            }
+
+            .leaflet-popup-content {
+              margin: 10px;
+              width: 260px !important;
+            }
+          }
         `}
       </style>
     </div>
@@ -802,6 +932,7 @@ const styles = {
     color: "white",
     padding: "10px",
     overflowY: "auto",
+    zIndex: 10,
   },
   item: {
     padding: "10px",
