@@ -13,6 +13,8 @@ import "leaflet/dist/leaflet.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 
+const ADMIN_PASSWORD = "1234";
+
 const starterSpots = [
   {
     name: "Airport",
@@ -44,28 +46,43 @@ const starterSpots = [
   },
 ];
 
-function makeIcon(image, active) {
+function makeIcon(image, active, hasPending) {
   const safeImage =
-    image && image !== ""
-      ? image
-      : "https://picsum.photos/200?random=99";
+    image && image !== "" ? image : "https://picsum.photos/200?random=99";
 
   return L.divIcon({
     html: `
-      <div class="${active ? "blink-marker" : ""}" style="
+      <div class="${active || hasPending ? "blink-marker" : ""}" style="
         width:60px;
         height:60px;
         border-radius:10px;
         overflow:hidden;
-        border:3px solid ${active ? "red" : "white"};
+        border:3px solid ${hasPending ? "orange" : active ? "red" : "white"};
         box-shadow:0 0 8px black;
         background:#fff;
+        position:relative;
       ">
         <img 
           src="${safeImage}" 
           style="width:100%;height:100%;object-fit:cover;"
           onerror="this.src='https://picsum.photos/200?random=100';"
         />
+
+        ${
+          hasPending
+            ? `<div style="
+                position:absolute;
+                bottom:0;
+                left:0;
+                width:100%;
+                background:orange;
+                color:black;
+                font-size:10px;
+                font-weight:bold;
+                text-align:center;
+              ">PENDING</div>`
+            : ""
+        }
       </div>
     `,
     className: "",
@@ -143,12 +160,7 @@ export default function App({ adminMode = false }) {
     return saved ? JSON.parse(saved) : starterSpots;
   });
 
-  useEffect(() => {
-    localStorage.setItem("spots", JSON.stringify(spots));
-  }, [spots]);
-
   const [selected, setSelected] = useState(null);
-  const admin = adminMode;
   const [name, setName] = useState("");
   const [pending, setPending] = useState(null);
   const [viewer, setViewer] = useState(null);
@@ -158,27 +170,45 @@ export default function App({ adminMode = false }) {
   const [showWarning, setShowWarning] = useState(false);
   const [uploadIndex, setUploadIndex] = useState(null);
 
-  const handleAdminAccess = () => {
-    navigate("/admin");
+  const admin = adminMode;
+
+  useEffect(() => {
+    localStorage.setItem("spots", JSON.stringify(spots));
+  }, [spots]);
+
+  const openSpotPopup = (spot) => {
+    setSelected(spot);
+
+    setTimeout(() => {
+      const marker = markerRefs.current[spot.name];
+      if (marker) marker.openPopup();
+    }, 600);
   };
 
   const focusSpot = (spot) => {
     setSelected(null);
 
     setTimeout(() => {
-      setSelected(spot);
-
-      setTimeout(() => {
-        const marker = markerRefs.current[spot.name];
-        if (marker) {
-          marker.openPopup();
-        }
-      }, 500);
+      openSpotPopup(spot);
     }, 50);
   };
 
+  const handleAdminAccess = () => {
+    const pass = window.prompt("Enter admin password:");
+
+    if (pass === ADMIN_PASSWORD) {
+      localStorage.setItem("isAdmin", "true");
+      navigate("/admin");
+    } else if (pass !== null) {
+      alert("Wrong password");
+    }
+  };
+
   const saveSpot = () => {
-    if (!name || !pending) return;
+    if (!name || !pending) {
+      alert("Type a spot name, then click the map.");
+      return;
+    }
 
     const newSpot = {
       name,
@@ -297,9 +327,7 @@ export default function App({ adminMode = false }) {
     setSpots(updated);
   };
 
-  const sortedSpots = [...spots].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  const sortedSpots = [...spots].sort((a, b) => a.name.localeCompare(b.name));
 
   const pendingCount = spots.reduce(
     (total, spot) => total + spot.pending.length,
@@ -310,26 +338,18 @@ export default function App({ adminMode = false }) {
     <div className="d-flex" style={{ height: "100vh", width: "100vw" }}>
       <div style={styles.sidebar}>
         {!admin && (
-  <button
-  className="btn btn-success w-100 mb-2"
-  onClick={() => {
-    const pass = window.prompt("Enter admin password:");
-
-    if (pass === "1234") {
-      navigate("/admin");
-    } else if (pass !== null) {
-      alert("Wrong password");
-    }
-  }}
->
-  ADMIN ACCESS
-</button>
+          <button className="btn btn-success w-100 mb-2" onClick={handleAdminAccess}>
+            ADMIN ACCESS
+          </button>
         )}
 
         {admin && (
           <button
             className="btn btn-secondary w-100 mb-2"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              localStorage.removeItem("isAdmin");
+              navigate("/");
+            }}
           >
             Back to User Page
           </button>
@@ -348,6 +368,9 @@ export default function App({ adminMode = false }) {
             onClick={() => focusSpot(spot)}
           >
             {spot.name}
+            {spot.pending.length > 0 && (
+              <span style={styles.pendingBadge}>{spot.pending.length}</span>
+            )}
           </div>
         ))}
 
@@ -355,6 +378,10 @@ export default function App({ adminMode = false }) {
 
         {admin && (
           <>
+            <p style={{ fontSize: "13px", color: "#ccc" }}>
+              Click the map to place a new spot.
+            </p>
+
             <input
               className="form-control mb-2"
               placeholder="Spot name"
@@ -414,6 +441,8 @@ export default function App({ adminMode = false }) {
 
           {spots.map((spot, i) => {
             const active = selected?.name === spot.name;
+            const hasPending = spot.pending.length > 0;
+
             const allImages = [
               {
                 src: spot.mainImage,
@@ -437,20 +466,18 @@ export default function App({ adminMode = false }) {
 
             return (
               <Marker
-                key={i}
+                key={`${spot.name}-${i}`}
                 ref={(ref) => {
-                  if (ref) {
-                    markerRefs.current[spot.name] = ref;
-                  }
+                  if (ref) markerRefs.current[spot.name] = ref;
                 }}
                 position={spot.position}
-                icon={makeIcon(spot.mainImage, active)}
+                icon={makeIcon(spot.mainImage, active, hasPending)}
                 eventHandlers={{
                   click: () => focusSpot(spot),
                 }}
               >
                 <Popup>
-                  <div style={{ width: "260px" }}>
+                  <div style={{ width: "280px" }}>
                     <h5 className="text-center">{spot.name}</h5>
 
                     <div style={styles.galleryScroll}>
@@ -463,8 +490,9 @@ export default function App({ adminMode = false }) {
                                 alt={`${spot.name} ${index}`}
                                 style={styles.galleryImage}
                                 onClick={() => {
-                                  focusSpot(spot);
                                   setViewer(img.src);
+                                  setZoom(1);
+                                  setDrag({ x: 0, y: 0 });
                                 }}
                               />
 
@@ -486,9 +514,17 @@ export default function App({ adminMode = false }) {
                             <>
                               <div
                                 style={styles.pendingBox}
-                                onClick={() => focusSpot(spot)}
+                                onClick={() => {
+                                  focusSpot(spot);
+                                  setViewer(img.src);
+                                  setZoom(1);
+                                  setDrag({ x: 0, y: 0 });
+                                }}
                               >
-                                Pending Image
+                                <div>
+                                  <div>Pending Image</div>
+                                  <small>Click to view</small>
+                                </div>
                               </div>
 
                               {admin && (
@@ -548,13 +584,12 @@ export default function App({ adminMode = false }) {
                             <img
                               src={img}
                               alt="Pending"
-                              style={{
-                                width: "100%",
-                                borderRadius: "8px",
-                                marginBottom: "5px",
-                                cursor: "pointer",
+                              style={styles.pendingPreview}
+                              onClick={() => {
+                                setViewer(img);
+                                setZoom(1);
+                                setDrag({ x: 0, y: 0 });
                               }}
-                              onClick={() => focusSpot(spot)}
                             />
 
                             <button
@@ -608,9 +643,7 @@ export default function App({ adminMode = false }) {
             );
           })}
 
-          {admin && pending && (
-            <Marker position={[pending.lat, pending.lng]} />
-          )}
+          {admin && pending && <Marker position={[pending.lat, pending.lng]} />}
         </MapContainer>
       </div>
 
@@ -627,26 +660,59 @@ export default function App({ adminMode = false }) {
           onMouseLeave={() => setDragging(false)}
           onMouseMove={(e) => {
             if (!dragging) return;
-            setDrag({
-              x: drag.x + e.movementX,
-              y: drag.y + e.movementY,
-            });
+            setDrag((old) => ({
+              x: old.x + e.movementX,
+              y: old.y + e.movementY,
+            }));
           }}
           onDoubleClick={() => {
-            setZoom(zoom === 1 ? 2 : 1);
+            setZoom((old) => (old === 1 ? 2 : 1));
             setDrag({ x: 0, y: 0 });
           }}
         >
+          <div style={styles.viewerHelp}>
+            Mouse wheel = zoom | Drag = move | Double click = reset
+          </div>
+
           <img
             src={viewer}
             alt="Full view"
+            draggable="false"
             style={{
-              transform: `scale(${zoom}) translate(${drag.x}px, ${drag.y}px)`,
+              transform: `translate(${drag.x}px, ${drag.y}px) scale(${zoom})`,
               maxWidth: "90%",
               maxHeight: "90%",
               cursor: dragging ? "grabbing" : "grab",
+              borderRadius: "10px",
+              userSelect: "none",
             }}
           />
+
+          <div style={styles.viewerButtons}>
+            <button
+              className="btn btn-light btn-sm"
+              onClick={() => setZoom((old) => Math.min(old + 0.25, 5))}
+            >
+              Zoom In
+            </button>
+
+            <button
+              className="btn btn-light btn-sm"
+              onClick={() => setZoom((old) => Math.max(old - 0.25, 1))}
+            >
+              Zoom Out
+            </button>
+
+            <button
+              className="btn btn-warning btn-sm"
+              onClick={() => {
+                setZoom(1);
+                setDrag({ x: 0, y: 0 });
+              }}
+            >
+              Reset
+            </button>
+          </div>
 
           <button
             onClick={() => {
@@ -654,13 +720,7 @@ export default function App({ adminMode = false }) {
               setZoom(1);
               setDrag({ x: 0, y: 0 });
             }}
-            style={{
-              position: "absolute",
-              top: 20,
-              right: 20,
-              fontSize: "20px",
-              padding: "6px 12px",
-            }}
+            style={styles.closeViewer}
           >
             ✕
           </button>
@@ -720,8 +780,8 @@ export default function App({ adminMode = false }) {
             }
 
             50% {
-              opacity: 0.35;
-              transform: scale(1.15);
+              opacity: 0.4;
+              transform: scale(1.12);
             }
 
             100% {
@@ -741,12 +801,29 @@ const styles = {
     background: "#111",
     color: "white",
     padding: "10px",
+    overflowY: "auto",
   },
   item: {
     padding: "10px",
     marginBottom: "5px",
     cursor: "pointer",
     borderRadius: "5px",
+    position: "relative",
+  },
+  pendingBadge: {
+    position: "absolute",
+    right: "8px",
+    top: "8px",
+    background: "orange",
+    color: "black",
+    borderRadius: "50%",
+    width: "22px",
+    height: "22px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: "bold",
   },
   zoom: {
     position: "absolute",
@@ -790,9 +867,9 @@ const styles = {
   pendingBox: {
     width: "90px",
     height: "90px",
-    background: "white",
+    background: "orange",
     color: "black",
-    border: "1px solid #ddd",
+    border: "2px solid #000",
     borderRadius: "8px",
     display: "flex",
     alignItems: "center",
@@ -801,6 +878,12 @@ const styles = {
     fontSize: "12px",
     fontWeight: "bold",
     flexShrink: 0,
+    cursor: "pointer",
+  },
+  pendingPreview: {
+    width: "100%",
+    borderRadius: "8px",
+    marginBottom: "5px",
     cursor: "pointer",
   },
   deleteImageBtn: {
@@ -829,11 +912,36 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     zIndex: 9999,
+    overflow: "hidden",
   },
-  viewerImage: {
-    maxWidth: "90%",
-    maxHeight: "90%",
-    borderRadius: "10px",
+  viewerHelp: {
+    position: "absolute",
+    top: "20px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "white",
+    background: "rgba(0,0,0,0.6)",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontSize: "14px",
+  },
+  viewerButtons: {
+    position: "absolute",
+    bottom: "25px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    display: "flex",
+    gap: "8px",
+  },
+  closeViewer: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    fontSize: "20px",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "none",
+    cursor: "pointer",
   },
   warningOverlay: {
     position: "fixed",
