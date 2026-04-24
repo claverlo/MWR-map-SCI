@@ -46,6 +46,25 @@ const starterSpots = [
   },
 ];
 
+function cleanSpots(savedSpots) {
+  if (!Array.isArray(savedSpots)) return starterSpots;
+
+  return savedSpots.map((spot, index) => {
+    const fallback = starterSpots[index];
+
+    return {
+      name: spot?.name || fallback?.name || `Location ${index + 1}`,
+      position: spot?.position || fallback?.position || [32.9, -118.5],
+      mainImage:
+        spot?.mainImage ||
+        fallback?.mainImage ||
+        "https://picsum.photos/200?random=99",
+      gallery: Array.isArray(spot?.gallery) ? spot.gallery : [],
+      pending: Array.isArray(spot?.pending) ? spot.pending : [],
+    };
+  });
+}
+
 function makeIcon(image, active, hasPending) {
   const safeImage =
     image && image !== "" ? image : "https://picsum.photos/200?random=99";
@@ -157,7 +176,7 @@ export default function App({ adminMode = false }) {
 
   const [spots, setSpots] = useState(() => {
     const saved = localStorage.getItem("spots");
-    return saved ? JSON.parse(saved) : starterSpots;
+    return saved ? cleanSpots(JSON.parse(saved)) : starterSpots;
   });
 
   const [selected, setSelected] = useState(null);
@@ -177,12 +196,6 @@ export default function App({ adminMode = false }) {
     localStorage.setItem("spots", JSON.stringify(spots));
   }, [spots]);
 
-  const closeMobileMenu = () => {
-    if (window.innerWidth <= 768) {
-      setMenuOpen(false);
-    }
-  };
-
   const openSpotPopup = (spot) => {
     setSelected(spot);
 
@@ -194,7 +207,7 @@ export default function App({ adminMode = false }) {
 
   const focusSpot = (spot) => {
     setSelected(null);
-    closeMobileMenu();
+    setMenuOpen(false);
 
     setTimeout(() => {
       openSpotPopup(spot);
@@ -230,45 +243,43 @@ export default function App({ adminMode = false }) {
     setSelected(newSpot);
     setName("");
     setPending(null);
-    closeMobileMenu();
+    setMenuOpen(false);
   };
 
   const deleteSpot = (index) => {
     if (!window.confirm("Delete this spot?")) return;
-
-    const updated = spots.filter((_, i) => i !== index);
-    setSpots(updated);
+    setSpots(spots.filter((_, i) => i !== index));
     setSelected(null);
   };
 
   const deleteGalleryImage = (spotIndex, galleryIndex) => {
     if (!window.confirm("Delete this photo?")) return;
 
-    const updated = spots.map((spot, i) => {
-      if (i !== spotIndex) return spot;
-
-      return {
-        ...spot,
-        gallery: spot.gallery.filter((_, idx) => idx !== galleryIndex),
-      };
-    });
-
-    setSpots(updated);
+    setSpots(
+      spots.map((spot, i) =>
+        i === spotIndex
+          ? {
+              ...spot,
+              gallery: spot.gallery.filter((_, idx) => idx !== galleryIndex),
+            }
+          : spot
+      )
+    );
   };
 
   const deletePendingImage = (spotIndex, pendingIndex) => {
     if (!window.confirm("Delete this pending photo?")) return;
 
-    const updated = spots.map((spot, i) => {
-      if (i !== spotIndex) return spot;
-
-      return {
-        ...spot,
-        pending: spot.pending.filter((_, idx) => idx !== pendingIndex),
-      };
-    });
-
-    setSpots(updated);
+    setSpots(
+      spots.map((spot, i) =>
+        i === spotIndex
+          ? {
+              ...spot,
+              pending: spot.pending.filter((_, idx) => idx !== pendingIndex),
+            }
+          : spot
+      )
+    );
   };
 
   const uploadToPending = (index, file) => {
@@ -276,52 +287,52 @@ export default function App({ adminMode = false }) {
 
     const url = URL.createObjectURL(file);
 
-    const updated = spots.map((spot, i) => {
-      if (i !== index) return spot;
+    setSpots(
+      spots.map((spot, i) => {
+        if (i !== index) return spot;
 
-      if (admin) {
+        if (admin) {
+          return {
+            ...spot,
+            gallery: [...spot.gallery, url],
+          };
+        }
+
         return {
           ...spot,
-          gallery: [...spot.gallery, url],
+          pending: [...spot.pending, url],
         };
-      }
-
-      return {
-        ...spot,
-        pending: [...spot.pending, url],
-      };
-    });
-
-    setSpots(updated);
+      })
+    );
   };
 
   const approveImage = (spotIndex, imgIndex) => {
-    const updated = spots.map((spot, i) => {
-      if (i !== spotIndex) return spot;
+    setSpots(
+      spots.map((spot, i) => {
+        if (i !== spotIndex) return spot;
 
-      const img = spot.pending[imgIndex];
+        const img = spot.pending[imgIndex];
 
-      return {
-        ...spot,
-        gallery: [...spot.gallery, img],
-        pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
-      };
-    });
-
-    setSpots(updated);
+        return {
+          ...spot,
+          gallery: [...spot.gallery, img],
+          pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
+        };
+      })
+    );
   };
 
   const rejectImage = (spotIndex, imgIndex) => {
-    const updated = spots.map((spot, i) =>
-      i === spotIndex
-        ? {
-            ...spot,
-            pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
-          }
-        : spot
+    setSpots(
+      spots.map((spot, i) =>
+        i === spotIndex
+          ? {
+              ...spot,
+              pending: spot.pending.filter((_, pIndex) => pIndex !== imgIndex),
+            }
+          : spot
+      )
     );
-
-    setSpots(updated);
   };
 
   const changeMain = (index, file) => {
@@ -329,14 +340,16 @@ export default function App({ adminMode = false }) {
 
     const url = URL.createObjectURL(file);
 
-    const updated = spots.map((spot, i) =>
-      i === index ? { ...spot, mainImage: url } : spot
+    setSpots(
+      spots.map((spot, i) =>
+        i === index ? { ...spot, mainImage: url } : spot
+      )
     );
-
-    setSpots(updated);
   };
 
-  const sortedSpots = [...spots].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedSpots = [...spots].sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "")
+  );
 
   const pendingCount = spots.reduce(
     (total, spot) => total + spot.pending.length,
@@ -345,18 +358,12 @@ export default function App({ adminMode = false }) {
 
   return (
     <div className="app-container">
-      <button
-        className="mobile-menu-btn"
-        onClick={() => setMenuOpen(true)}
-      >
+      <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)}>
         ☰ Locations
       </button>
 
       {menuOpen && (
-        <div
-          className="mobile-backdrop"
-          onClick={() => setMenuOpen(false)}
-        />
+        <div className="mobile-backdrop" onClick={() => setMenuOpen(false)} />
       )}
 
       <div
@@ -391,7 +398,7 @@ export default function App({ adminMode = false }) {
           </button>
         )}
 
-        <h5>Locations</h5>
+        <h5 style={{ color: "white", fontWeight: "bold" }}>Locations</h5>
 
         {sortedSpots.map((spot) => (
           <div
@@ -400,12 +407,24 @@ export default function App({ adminMode = false }) {
               ...styles.item,
               background:
                 selected?.name === spot.name ? "#0d6efd" : "#6c757d",
+              color: "#ffffff",
             }}
             onClick={() => focusSpot(spot)}
           >
-          {admin && spot.pending.length > 0 && (
-  <span style={styles.pendingBadge}>{spot.pending.length}</span>
-)}
+            <span
+              style={{
+                color: "#ffffff",
+                fontSize: "18px",
+                fontWeight: "700",
+                display: "inline-block",
+              }}
+            >
+              {spot.name || "Unnamed Location"}
+            </span>
+
+            {admin && spot.pending.length > 0 && (
+              <span style={styles.pendingBadge}>{spot.pending.length}</span>
+            )}
           </div>
         ))}
 
@@ -476,7 +495,7 @@ export default function App({ adminMode = false }) {
 
           {spots.map((spot, i) => {
             const active = selected?.name === spot.name;
-            const hasPending = spot.pending.length > 0;
+            const hasPending = admin && spot.pending.length > 0;
 
             const allImages = [
               {
@@ -491,12 +510,14 @@ export default function App({ adminMode = false }) {
                 type: "gallery",
                 realIndex: galleryIndex,
               })),
-              ...spot.pending.map((img, pendingIndex) => ({
-                src: img,
-                pending: true,
-                type: "pending",
-                realIndex: pendingIndex,
-              })),
+              ...(admin
+                ? spot.pending.map((img, pendingIndex) => ({
+                    src: img,
+                    pending: true,
+                    type: "pending",
+                    realIndex: pendingIndex,
+                  }))
+                : []),
             ];
 
             return (
@@ -545,7 +566,7 @@ export default function App({ adminMode = false }) {
                             </>
                           )}
 
-                          {img.pending && (
+                          {admin && img.pending && (
                             <>
                               <div
                                 style={styles.pendingBox}
@@ -562,31 +583,20 @@ export default function App({ adminMode = false }) {
                                 </div>
                               </div>
 
-                              {admin && (
-                                <button
-                                  style={styles.deleteImageBtn}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deletePendingImage(i, img.realIndex);
-                                  }}
-                                >
-                                  ✕
-                                </button>
-                              )}
+                              <button
+                                style={styles.deleteImageBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deletePendingImage(i, img.realIndex);
+                                }}
+                              >
+                                ✕
+                              </button>
                             </>
                           )}
                         </div>
                       ))}
                     </div>
-
-                    {!admin && spot.pending.length > 0 && (
-                      <div
-                        className="text-warning text-center mt-1"
-                        style={{ fontSize: "12px" }}
-                      >
-                        Photo pending approval
-                      </div>
-                    )}
 
                     <input
                       id={`g-${i}`}
@@ -814,7 +824,18 @@ export default function App({ adminMode = false }) {
           }
 
           .mobile-menu-btn {
-            display: none;
+            display: block;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 5000;
+            background: #111;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
           }
 
           .mobile-close-btn {
@@ -862,21 +883,6 @@ export default function App({ adminMode = false }) {
               flex: 1;
             }
 
-            .mobile-menu-btn {
-              display: block;
-              position: fixed;
-              top: 12px;
-              left: 12px;
-              z-index: 5000;
-              background: #111;
-              color: white;
-              border: none;
-              border-radius: 8px;
-              padding: 10px 14px;
-              font-weight: bold;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-            }
-
             .mobile-close-btn {
               display: block;
             }
@@ -899,7 +905,7 @@ export default function App({ adminMode = false }) {
               height: 100dvh !important;
               width: 82vw !important;
               max-width: 340px;
-              z-index: 4000;
+              z-index: 5001 !important;
               transform: translateX(-105%);
               transition: transform 0.25s ease;
               overflow-y: auto !important;
@@ -925,20 +931,25 @@ export default function App({ adminMode = false }) {
 }
 
 const styles = {
-sidebar: {
-  width: "260px",
-  background: "#111",
-  color: "white",
-  padding: "10px",
-  overflowY: "auto",
-  zIndex: 5001,
-},
+  sidebar: {
+    width: "260px",
+    background: "#111",
+    color: "white",
+    padding: "10px",
+    overflowY: "auto",
+    zIndex: 5001,
+  },
   item: {
     padding: "10px",
     marginBottom: "5px",
     cursor: "pointer",
     borderRadius: "5px",
     position: "relative",
+    color: "white",
+    fontWeight: "bold",
+    minHeight: "38px",
+    display: "flex",
+    alignItems: "center",
   },
   pendingBadge: {
     position: "absolute",
