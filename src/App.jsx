@@ -403,10 +403,9 @@ export default function App({ adminMode = false }) {
             }}
             onClick={() => focusSpot(spot)}
           >
-            {spot.name}
-            {spot.pending.length > 0 && (
-              <span style={styles.pendingBadge}>{spot.pending.length}</span>
-            )}
+          {admin && spot.pending.length > 0 && (
+  <span style={styles.pendingBadge}>{spot.pending.length}</span>
+)}
           </div>
         ))}
 
