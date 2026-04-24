@@ -359,7 +359,7 @@ export default function App({ adminMode = false }) {
   return (
     <div className="app-container">
       <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)}>
-        ☰ Locations
+        ☰ Menu 
       </button>
 
       {menuOpen && (
