@@ -715,10 +715,7 @@ export default function App({ adminMode = false }) {
             setDrag({ x: 0, y: 0 });
           }}
         >
-          <div style={styles.viewerHelp}>
-            Mouse wheel = zoom | Drag = move | Double click = reset
-          </div>
-
+          
           <img
             src={viewer}
             alt="Full view"
