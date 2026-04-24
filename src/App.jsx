@@ -335,8 +335,8 @@ export default function App({ adminMode = false }) {
   );
 
   return (
-    <div className="d-flex" style={{ height: "100vh", width: "100vw" }}>
-      <div style={styles.sidebar}>
+    <div className="app-container">
+      <div className="sidebar" style={styles.sidebar}>
         {!admin && (
           <button className="btn btn-success w-100 mb-2" onClick={handleAdminAccess}>
             ADMIN ACCESS
@@ -421,7 +421,7 @@ export default function App({ adminMode = false }) {
         )}
       </div>
 
-      <div style={{ flex: 1, width: "100%" }}>
+      <div className="map-area" style={{ flex: 1, width: "100%" }}>
         <MapContainer
           center={[32.9, -118.5]}
           zoom={11}
