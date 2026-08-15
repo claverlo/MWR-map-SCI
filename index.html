@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrailQuest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">TQ</div>
+          <div>
+            <p class="eyebrow">Outdoor challenge</p>
+            <h1>TrailQuest</h1>
+          </div>
+        </div>
+
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-btn active" data-screen="dashboard">Dashboard</button>
+          <button class="nav-btn" data-screen="trails">Trails</button>
+          <button class="nav-btn" data-screen="challenge">Challenge</button>
+          <button class="nav-btn" data-screen="profile">Profile</button>
+        </nav>
+
+        <button class="primary-btn">+ New Challenge</button>
+      </header>
+
+      <main>
+        <section id="dashboard" class="screen active">
+          <div class="content-grid">
+            <div class="left-panel">
+              <div class="hero-card">
+                <div class="hero-row">
+                  <div>
+                    <p class="eyebrow accent">Island challenge</p>
+                    <h2>San Clemente Pursuit</h2>
+                  </div>
+                  <span class="bonus-pill">+120 XP</span>
+                </div>
+
+                <div class="hero-meta">
+                  <span>3 hikes left</span>
+                  <span>2 new badges</span>
+                </div>
+
+                <div class="progress-wrap">
+                  <div class="progress-label">
+                    <span>Challenge progress</span>
+                    <strong id="weekly-progress">62%</strong>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <span>Total distance</span>
+                  <strong id="distance-total">18.4 km</strong>
+                </div>
+                <div class="stat-card">
+                  <span>Current streak</span>
+                  <strong id="streak-total">6 days</strong>
+                </div>
+                <div class="stat-card">
+                  <span>Badges</span>
+                  <strong id="badge-total">4</strong>
+                </div>
+                <div class="stat-card">
+                  <span>Points</span>
+                  <strong id="points-total">1,250</strong>
+                </div>
+              </div>
+
+              <div class="section-header">
+                <h3>Available trails</h3>
+                <button class="ghost-btn" data-screen="trails">View all</button>
+              </div>
+
+              <div id="challenge-list" class="challenge-list"></div>
+
+              <div class="badge-panel">
+                <div class="section-header compact">
+                  <h3>Achievements</h3>
+                  <button class="ghost-btn" data-screen="profile">See all</button>
+                </div>
+                <div id="badge-grid" class="badge-grid"></div>
+              </div>
+            </div>
+
+            <aside class="right-panel">
+              <div class="map-card">
+                <div class="map-header">
+                  <div>
+                    <p class="eyebrow">Live route</p>
+                    <h3 id="map-title">Forest Ridge Loop</h3>
+                  </div>
+                  <span class="status-pill live">Live</span>
+                </div>
+
+                <div class="route-map">
+                  <span class="dot start"></span>
+                  <span class="dot finish"></span>
+                  <div class="route-line"></div>
+                </div>
+
+                <div class="map-stats">
+                  <div>
+                    <span>Distance</span>
+                    <strong id="live-distance">4.8 km</strong>
+                  </div>
+                  <div>
+                    <span>Duration</span>
+                    <strong id="live-time">01:42</strong>
+                  </div>
+                  <div>
+                    <span>Elevation</span>
+                    <strong id="live-elevation">230 m</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="leaderboard-card">
+                <div class="section-header compact">
+                  <h3>Leaderboard</h3>
+                  <button class="ghost-btn">This week</button>
+                </div>
+                <ul id="leaderboard" class="leaderboard"></ul>
+              </div>
+
+              <div class="live-card">
+                <div class="section-header compact">
+                  <h3>Live hikers</h3>
+                  <span class="live-status">12 online</span>
+                </div>
+                <div id="live-hikers" class="live-hikers"></div>
+              </div>
+
+              <div class="chat-card">
+                <div class="section-header compact">
+                  <h3>Trail chat</h3>
+                </div>
+                <ul id="trail-chat" class="trail-chat"></ul>
+                <div class="chat-compose">
+                  <input id="chat-input" type="text" placeholder="Message the trail" maxlength="120" />
+                  <button id="send-message-btn" class="primary-btn small">Send</button>
+                </div>
+              </div>
+
+              <div class="activity-card">
+                <div class="section-header compact">
+                  <h3>Recent activity</h3>
+                </div>
+                <ul id="activity-feed" class="activity-feed"></ul>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="trails" class="screen">
+          <div class="panel-header-page">
+            <div>
+              <p class="eyebrow accent">Explore routes</p>
+              <h2>Find your next climb</h2>
+            </div>
+            <button class="primary-btn">Filter trails</button>
+          </div>
+          <div id="trail-list" class="trail-list"></div>
+        </section>
+
+        <section id="challenge" class="screen">
+          <div class="panel-header-page">
+            <div>
+              <p class="eyebrow accent">Current mission</p>
+              <h2 id="selected-trail-name">Forest Ridge Loop</h2>
+            </div>
+            <button class="primary-btn" id="start-trail-btn">Start challenge</button>
+          </div>
+          <div id="challenge-detail" class="challenge-detail"></div>
+        </section>
+
+        <section id="profile" class="screen">
+          <div class="panel-header-page">
+            <div>
+              <p class="eyebrow accent">Your account</p>
+              <h2>Hiker profile</h2>
+            </div>
+            <button class="ghost-btn">Edit profile</button>
+          </div>
+
+          <div class="profile-grid">
+            <div class="profile-card large">
+              <div class="profile-top">
+                <div class="avatar">Y</div>
+                <div>
+                  <h3>You</h3>
+                  <p>Trail explorer</p>
+                </div>
+              </div>
+
+              <div class="stats-grid profile-stats">
+                <div class="stat-card compact-stat">
+                  <span>Level</span>
+                  <strong>12</strong>
+                </div>
+                <div class="stat-card compact-stat">
+                  <span>Sunrise hikes</span>
+                  <strong>21</strong>
+                </div>
+                <div class="stat-card compact-stat">
+                  <span>Favorites</span>
+                  <strong>8</strong>
+                </div>
+                <div class="stat-card compact-stat">
+                  <span>Monthly goal</span>
+                  <strong>75%</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-card">
+              <h3>Badges</h3>
+              <div id="profile-badges" class="profile-badges"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
